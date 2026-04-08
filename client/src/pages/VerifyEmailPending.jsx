@@ -19,6 +19,7 @@ const VerifyEmailPending = () => {
   const [verified, setVerified] = React.useState(false);
   const [timedOut, setTimedOut] = React.useState(false);
   const [statusMessage, setStatusMessage] = React.useState("");
+  const [statusApiAvailable, setStatusApiAvailable] = React.useState(true);
   const [remainingSeconds, setRemainingSeconds] = React.useState(
     initialTimeoutSeconds,
   );
@@ -26,7 +27,7 @@ const VerifyEmailPending = () => {
   const [resending, setResending] = React.useState(false);
 
   const checkVerificationStatus = React.useCallback(async () => {
-    if (!syncKey || verified || timedOut) return;
+    if (!syncKey || verified || timedOut || !statusApiAvailable) return;
 
     try {
       setChecking(true);
@@ -35,6 +36,8 @@ const VerifyEmailPending = () => {
         syncKey,
         email: email === "your email" ? "" : email,
       });
+
+      setStatusApiAvailable(true);
 
       if (data?.sessionMissing) {
         setTimedOut(true);
@@ -63,11 +66,10 @@ const VerifyEmailPending = () => {
       const message = error.response?.data?.message || error.message;
 
       if (isNotFound) {
-        setTimedOut(true);
+        setStatusApiAvailable(false);
         setStatusMessage(
-          "Verification session expired. Please resend the verification email.",
+          "Email sent. Auto verification check is unavailable on this deployment. After clicking the link in your email, continue to Login and sign in with Google.",
         );
-        setRemainingSeconds(0);
         return;
       }
 
@@ -84,13 +86,13 @@ const VerifyEmailPending = () => {
     } finally {
       setChecking(false);
     }
-  }, [dispatch, syncKey, timedOut, verified]);
+  }, [dispatch, statusApiAvailable, syncKey, timedOut, verified]);
 
   React.useEffect(() => {
     if (!syncKey) {
-      setTimedOut(true);
+      setStatusApiAvailable(false);
       setStatusMessage(
-        "Verification session expired. Please resend the email.",
+        "Verification email was sent, but this session cannot be auto-tracked. After clicking the link in your email, continue to Login and sign in with Google.",
       );
       setRemainingSeconds(0);
       return;
@@ -100,13 +102,13 @@ const VerifyEmailPending = () => {
   }, [checkVerificationStatus, syncKey]);
 
   React.useEffect(() => {
-    if (verified || timedOut) return;
+    if (verified || timedOut || !statusApiAvailable) return;
     const pollInterval = setInterval(() => {
       checkVerificationStatus();
     }, 1000);
 
     return () => clearInterval(pollInterval);
-  }, [verified, timedOut, checkVerificationStatus]);
+  }, [verified, timedOut, statusApiAvailable, checkVerificationStatus]);
 
   React.useEffect(() => {
     if (!verified) return;
@@ -126,7 +128,7 @@ const VerifyEmailPending = () => {
   }, [verified, navigate]);
 
   React.useEffect(() => {
-    if (verified || timedOut) return;
+    if (verified || timedOut || !statusApiAvailable) return;
 
     const timer = setInterval(() => {
       setRemainingSeconds((prev) => {
@@ -142,7 +144,7 @@ const VerifyEmailPending = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timedOut, verified]);
+  }, [timedOut, verified, statusApiAvailable]);
 
   const handleResendVerificationEmail = async () => {
     if (resending || verified) return;
@@ -155,6 +157,8 @@ const VerifyEmailPending = () => {
         syncKey,
         email: email === "your email" ? "" : email,
       });
+
+      setStatusApiAvailable(true);
 
       if (data?.alreadyVerified) {
         setStatusMessage(
@@ -184,9 +188,9 @@ const VerifyEmailPending = () => {
       const isNotFound = error?.response?.status === 404;
       if (isNotFound) {
         setStatusMessage(
-          "Verification session is unavailable right now. Please go back to Login and continue with Google once.",
+          "Resend is unavailable on this deployment. Please go back to Login and continue with Google once.",
         );
-        setTimedOut(true);
+        setStatusApiAvailable(false);
         setRemainingSeconds(0);
         return;
       }
@@ -229,8 +233,15 @@ const VerifyEmailPending = () => {
             </p>
             <p className="mt-2 text-xs text-amber-700 font-medium select-none">
               Note: This verification link expires in{" "}
-              {formatCountdown(remainingSeconds)}
+              {statusApiAvailable
+                ? formatCountdown(remainingSeconds)
+                : "about 5 minutes"}
             </p>
+            {!statusApiAvailable && statusMessage && (
+              <p className="mt-2 text-xs text-amber-700 font-medium select-none">
+                {statusMessage}
+              </p>
+            )}
           </>
         ) : verified ? (
           <>
@@ -256,7 +267,7 @@ const VerifyEmailPending = () => {
           If you do not see the email, check your Spam or Promotions folder.
         </div>
 
-        {!verified && (
+        {!verified && statusApiAvailable && (
           <button
             type="button"
             onClick={handleResendVerificationEmail}
@@ -266,6 +277,16 @@ const VerifyEmailPending = () => {
             {resending
               ? "Resending verification email..."
               : "Resend verification email"}
+          </button>
+        )}
+
+        {!verified && !statusApiAvailable && (
+          <button
+            type="button"
+            onClick={() => navigate("/login?state=login")}
+            className="mt-4 w-full h-11 rounded-full text-amber-800 border border-amber-400 hover:bg-amber-50 transition-colors font-medium"
+          >
+            I Verified, Continue to Login
           </button>
         )}
 

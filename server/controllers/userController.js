@@ -574,21 +574,43 @@ export const googleLogin = async (req, res) => {
       });
     }
 
-    await sendEmailVerificationLinkWithRetry({
-      email,
-      name,
-      verificationToken,
-    });
-
-    console.log("✅ Verification email sent successfully to:", email);
-
-    return res.status(200).json({
+    const responsePayload = {
       message: "Please check your email inbox to verify your email address...",
       token: null,
       verificationSyncKey,
       verificationTimeoutSeconds: GOOGLE_EMAIL_VERIFICATION_TIMEOUT_SECONDS,
       user: buildSafeUser(user),
-    });
+    };
+
+    const requestTag = randomBytes(4).toString("hex");
+    const userId = String(user._id || "");
+    const syncKeyPreview = `${verificationSyncKey.slice(0, 8)}...`;
+
+    console.log(
+      `[google-auth:${requestTag}] verification session created userId=${userId} email=${email} syncKey=${syncKeyPreview}`,
+    );
+
+    // Respond immediately in production to avoid client timeout on cold starts
+    // or slow SMTP providers. Email delivery continues in background.
+    res.status(200).json(responsePayload);
+
+    sendEmailVerificationLinkWithRetry({
+      email,
+      name,
+      verificationToken,
+    })
+      .then(() => {
+        console.log(
+          `[google-auth:${requestTag}] verification email sent userId=${userId} email=${email}`,
+        );
+      })
+      .catch((emailError) => {
+        console.error(
+          `[google-auth:${requestTag}] verification email failed userId=${userId} email=${email} reason=${emailError.message}`,
+        );
+      });
+
+    return;
   } catch (error) {
     console.error("❌ Google login error:", error.message);
     return res.status(500).json({
