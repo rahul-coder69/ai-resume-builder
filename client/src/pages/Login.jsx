@@ -119,6 +119,9 @@ const Login = () => {
 
   const handleGoogleError = () => {
     setGoogleTimeoutError(false);
+    toast.error(
+      "Google sign-in failed before reaching server. Check VITE_GOOGLE_CLIENT_ID authorized origins and deployed API URL.",
+    );
     console.error("Google auth failed");
   };
 
@@ -229,26 +232,34 @@ const Login = () => {
             </div>
             <div className="mt-2 flex justify-center">
               {hasGoogleClientId ? (
-                googleSubmitting ? (
-                  <div className="w-[286px] h-[40px] rounded-full border border-gray-300 bg-gray-100 text-gray-600 text-sm font-medium flex items-center justify-center gap-2 select-none cursor-not-allowed">
-                    <img
-                      src={GOOGLE_ICON_URL}
-                      alt="Google"
-                      className="h-4 w-4"
-                      loading="lazy"
+                <div className="relative w-[286px] h-[40px]">
+                  <div
+                    className={
+                      googleSubmitting ? "pointer-events-none opacity-50" : ""
+                    }
+                  >
+                    <GoogleLogin
+                      key={googleWidgetKey}
+                      onSuccess={handleGoogleSuccess}
+                      onError={handleGoogleError}
+                      text={view === "login" ? "signin_with" : "signup_with"}
+                      shape="pill"
+                      width="286"
                     />
-                    {googleButtonLabel}
                   </div>
-                ) : (
-                  <GoogleLogin
-                    key={googleWidgetKey}
-                    onSuccess={handleGoogleSuccess}
-                    onError={handleGoogleError}
-                    text={view === "login" ? "signin_with" : "signup_with"}
-                    shape="pill"
-                    width="286"
-                  />
-                )
+
+                  {googleSubmitting && (
+                    <div className="absolute inset-0 rounded-full border border-gray-300 bg-gray-100/95 text-gray-700 text-sm font-medium flex items-center justify-center gap-2 select-none">
+                      <img
+                        src={GOOGLE_ICON_URL}
+                        alt="Google"
+                        className="h-4 w-4"
+                        loading="lazy"
+                      />
+                      {googleButtonLabel}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="w-full rounded-full border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs text-amber-700">
                   Google auth is disabled until VITE_GOOGLE_CLIENT_ID is set.

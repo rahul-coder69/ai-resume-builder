@@ -2,7 +2,7 @@ import axios from "axios";
 
 const rawBaseURL = import.meta.env.VITE_BASE_URL;
 const PLACEHOLDER_RENDER_HOST = "your-render-service.onrender.com";
-const DEFAULT_PROD_BASE_URL = "https://resume-builder-0d7z.onrender.com";
+const DEFAULT_PROD_BASE_URL = "https://ai-resume-builder-cvca.onrender.com";
 const DEFAULT_DEV_BASE_URL = "http://localhost:3000";
 
 const normalizeBaseURL = (url) => {

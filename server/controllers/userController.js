@@ -660,21 +660,36 @@ export const verifyEmailViaToken = async (req, res) => {
 
 export const getEmailVerificationStatus = async (req, res) => {
   try {
-    const { syncKey } = req.body;
+    const { syncKey, email } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!syncKey) {
+    if (!syncKey && !normalizedEmail) {
       return res.status(400).json({
-        message: "Sync key is required",
+        message: "Sync key or email is required",
       });
     }
 
-    const user = await User.findOne({
-      emailVerificationSyncKey: syncKey,
-    });
+    let user = null;
+
+    if (syncKey) {
+      user = await User.findOne({
+        emailVerificationSyncKey: syncKey,
+      });
+    }
+
+    // Fallback for older sessions where sync key may be missing or expired in URL.
+    if (!user && normalizedEmail) {
+      user = await User.findOne({
+        email: normalizedEmail,
+        authProvider: "google",
+      });
+    }
 
     if (!user) {
-      return res.status(404).json({
-        message: "Verification session not found",
+      return res.status(200).json({
+        verified: false,
+        sessionMissing: true,
+        remainingSeconds: 0,
       });
     }
 

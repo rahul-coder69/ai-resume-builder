@@ -33,7 +33,17 @@ const VerifyEmailPending = () => {
 
       const { data } = await api.post("/api/users/verify-email/status", {
         syncKey,
+        email: email === "your email" ? "" : email,
       });
+
+      if (data?.sessionMissing) {
+        setTimedOut(true);
+        setStatusMessage(
+          "Verification session expired. Please resend the verification email.",
+        );
+        setRemainingSeconds(0);
+        return;
+      }
 
       if (!data?.verified) return;
 
@@ -49,7 +59,18 @@ const VerifyEmailPending = () => {
       setStatusMessage("Email verified. Redirecting to dashboard...");
       setRemainingSeconds(0);
     } catch (error) {
+      const isNotFound = error?.response?.status === 404;
       const message = error.response?.data?.message || error.message;
+
+      if (isNotFound) {
+        setTimedOut(true);
+        setStatusMessage(
+          "Verification session expired. Please resend the verification email.",
+        );
+        setRemainingSeconds(0);
+        return;
+      }
+
       if (message === "Verification timeout please try again") {
         setTimedOut(true);
         setStatusMessage("Verification timeout please try again");
