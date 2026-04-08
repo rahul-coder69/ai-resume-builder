@@ -50,7 +50,7 @@ export const testSendEmail = async (req, res) => {
       troubleshooting: [
         "1. Make sure SMTP_HOST, SMTP_USER, SMTP_PASS are correct in .env",
         "2. Restart your server after changing .env",
-        "3. Check that you copied credentials exactly from Ethereal",
+        "3. Check that you copied credentials exactly from Mailtrap",
         "4. Make sure there are no extra spaces in .env values",
       ],
     });

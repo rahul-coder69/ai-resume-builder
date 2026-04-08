@@ -138,6 +138,26 @@ const sendEmailVerificationLink = async ({
   });
 };
 
+const sendEmailVerificationLinkWithRetry = async (payload) => {
+  const maxAttempts = 2;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await sendEmailVerificationLink(payload);
+      return;
+    } catch (error) {
+      lastError = error;
+      console.error(
+        `❌ Verification email attempt ${attempt}/${maxAttempts} failed:`,
+        error.message,
+      );
+    }
+  }
+
+  throw lastError;
+};
+
 const getGoogleVerificationRemainingSeconds = (expiresAt) => {
   if (!expiresAt) return 0;
 
@@ -554,34 +574,26 @@ export const googleLogin = async (req, res) => {
       });
     }
 
-    const responsePayload = {
+    await sendEmailVerificationLinkWithRetry({
+      email,
+      name,
+      verificationToken,
+    });
+
+    console.log("✅ Verification email sent successfully to:", email);
+
+    return res.status(200).json({
       message: "Please check your email inbox to verify your email address...",
       token: null,
       verificationSyncKey,
       verificationTimeoutSeconds: GOOGLE_EMAIL_VERIFICATION_TIMEOUT_SECONDS,
       user: buildSafeUser(user),
-    };
-
-    // Respond first so client does not hit request timeout while SMTP is slow.
-    res.status(200).json(responsePayload);
-
-    sendEmailVerificationLink({
-      email,
-      name,
-      verificationToken,
-    })
-      .then(() => {
-        console.log("✅ Verification email sent successfully to:", email);
-      })
-      .catch((emailError) => {
-        console.error("❌ Email sending failed:", emailError.message);
-      });
-
-    return;
+    });
   } catch (error) {
     console.error("❌ Google login error:", error.message);
-    return res.status(400).json({
-      message: error.message,
+    return res.status(500).json({
+      message:
+        "Could not send verification email right now. Please try Google sign-up again in a moment.",
     });
   }
 };
