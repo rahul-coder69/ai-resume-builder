@@ -25,7 +25,7 @@ const resolvedBaseURL = import.meta.env.DEV
 
 const api = axios.create({
   baseURL: resolvedBaseURL,
-  timeout: 30000,
+  timeout: 15000,
 });
 
 api.interceptors.request.use((config) => {
