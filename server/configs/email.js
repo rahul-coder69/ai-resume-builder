@@ -3,6 +3,9 @@ import nodemailer from "nodemailer";
 const smtpHost = (process.env.SMTP_HOST || "").trim();
 const smtpUser = (process.env.SMTP_USER || "").trim();
 const smtpPass = (process.env.SMTP_PASS || "").trim();
+const smtpFrom = (process.env.SMTP_FROM || "").trim();
+const isMailtrapHost = /mailtrap\.io$/i.test(smtpHost);
+const resolvedFromAddress = isMailtrapHost ? smtpUser : smtpFrom || smtpUser;
 
 const hasEmailConfig = Boolean(smtpHost && smtpUser && smtpPass);
 
@@ -32,8 +35,22 @@ const transporter = hasEmailConfig
         user: smtpUser,
         pass: smtpPass,
       },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
     })
   : null;
+
+if (transporter) {
+  transporter
+    .verify()
+    .then(() => {
+      console.log("✅ SMTP connection verified successfully");
+    })
+    .catch((error) => {
+      console.error("❌ SMTP connection verify failed:", error.message);
+    });
+}
 
 export const sendEmail = async ({ to, subject, text, html }) => {
   if (!transporter) {
@@ -43,14 +60,9 @@ export const sendEmail = async ({ to, subject, text, html }) => {
   }
 
   try {
-    console.log(
-      "📧 Sending email to:",
-      to,
-      "from:",
-      process.env.SMTP_FROM || smtpUser,
-    );
+    console.log("📧 Sending email to:", to, "from:", resolvedFromAddress);
     const result = await transporter.sendMail({
-      from: process.env.SMTP_FROM || smtpUser,
+      from: resolvedFromAddress,
       to,
       subject,
       text,
