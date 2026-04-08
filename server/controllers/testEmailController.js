@@ -11,7 +11,7 @@ export const testSendEmail = async (req, res) => {
       });
     }
 
-    await sendEmail({
+    const result = await sendEmail({
       to: toEmail,
       subject: "Resume Builder Test Email ✅",
       text: "This is a test email from your Resume Builder app. If you received this, your SMTP setup is working perfectly!",
@@ -38,9 +38,10 @@ export const testSendEmail = async (req, res) => {
     });
 
     return res.status(200).json({
-      message: "Test email sent successfully! Check your Ethereal inbox.",
-      etherealInbox: "https://ethereal.email/messages",
-      note: "Login to Ethereal to view the email",
+      message: "Test email sent successfully! Check your Mailtrap inbox.",
+      mailProvider: "Mailtrap",
+      messageId: result?.messageId || null,
+      note: "Open your Mailtrap inbox to view the email",
     });
   } catch (error) {
     return res.status(400).json({
