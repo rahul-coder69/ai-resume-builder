@@ -181,7 +181,20 @@ const VerifyEmailPending = () => {
         { replace: true },
       );
     } catch (error) {
-      setStatusMessage(error.response?.data?.message || error.message);
+      const isNotFound = error?.response?.status === 404;
+      if (isNotFound) {
+        setStatusMessage(
+          "Verification session is unavailable right now. Please go back to Login and continue with Google once.",
+        );
+        setTimedOut(true);
+        setRemainingSeconds(0);
+        return;
+      }
+
+      setStatusMessage(
+        error.response?.data?.message ||
+          "Could not resend verification email right now. Please try again.",
+      );
     } finally {
       setResending(false);
     }
