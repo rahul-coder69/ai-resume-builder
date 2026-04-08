@@ -497,6 +497,20 @@ export const googleLogin = async (req, res) => {
 
     let user = await User.findOne({ email });
 
+    const isReturningVerifiedGoogleUser =
+      user &&
+      user.authProvider === "google" &&
+      user.isEmailVerified &&
+      user.googleId === googleId;
+
+    if (isReturningVerifiedGoogleUser) {
+      return res.status(200).json({
+        message: "Logged in",
+        token: generateToken(user._id),
+        user: buildSafeUser(user),
+      });
+    }
+
     const verificationToken = generateEmailVerificationToken();
     const verificationSyncKey = generateEmailVerificationSyncKey();
     const tokenExpiry = new Date(
@@ -530,28 +544,30 @@ export const googleLogin = async (req, res) => {
       });
     }
 
-    // Send verification email
-    try {
-      await sendEmailVerificationLink({
-        email,
-        name,
-        verificationToken,
-      });
-      console.log("✅ Verification email sent successfully to:", email);
-    } catch (emailError) {
-      console.error("❌ Email sending failed:", emailError.message);
-      throw emailError;
-    }
-
-    user.password = undefined;
-
-    return res.status(200).json({
+    const responsePayload = {
       message: "Please check your email inbox to verify your email address...",
       token: null,
       verificationSyncKey,
       verificationTimeoutSeconds: GOOGLE_EMAIL_VERIFICATION_TIMEOUT_SECONDS,
       user: buildSafeUser(user),
-    });
+    };
+
+    // Respond first so client does not hit request timeout while SMTP is slow.
+    res.status(200).json(responsePayload);
+
+    sendEmailVerificationLink({
+      email,
+      name,
+      verificationToken,
+    })
+      .then(() => {
+        console.log("✅ Verification email sent successfully to:", email);
+      })
+      .catch((emailError) => {
+        console.error("❌ Email sending failed:", emailError.message);
+      });
+
+    return;
   } catch (error) {
     console.error("❌ Google login error:", error.message);
     return res.status(400).json({

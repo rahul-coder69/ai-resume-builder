@@ -8,6 +8,8 @@ import { login } from "../app/features/authSlice";
 import toast from "react-hot-toast";
 
 const Login = () => {
+  const GOOGLE_AUTH_TIMEOUT_MS = 60000;
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -18,6 +20,8 @@ const Login = () => {
   const [view, setView] = React.useState(isSignup ? "signup" : "login");
   const [submitting, setSubmitting] = React.useState(false);
   const [googleSubmitting, setGoogleSubmitting] = React.useState(false);
+  const [googleTimeoutError, setGoogleTimeoutError] = React.useState(false);
+  const [googleWidgetKey, setGoogleWidgetKey] = React.useState(0);
   const hasGoogleClientId = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
   React.useEffect(() => {
@@ -72,9 +76,16 @@ const Login = () => {
 
     try {
       setGoogleSubmitting(true);
-      const { data } = await api.post("/api/users/google", {
-        credential: credentialResponse.credential,
-      });
+      setGoogleTimeoutError(false);
+      const { data } = await api.post(
+        "/api/users/google",
+        {
+          credential: credentialResponse.credential,
+        },
+        {
+          timeout: GOOGLE_AUTH_TIMEOUT_MS,
+        },
+      );
       toast.success(data.message);
       if (data?.token) {
         dispatch(login(data));
@@ -86,13 +97,22 @@ const Login = () => {
         `/verify-email-pending?email=${encodeURIComponent(data?.user?.email || "")}&syncKey=${encodeURIComponent(data?.verificationSyncKey || "")}&timeoutSeconds=${encodeURIComponent(data?.verificationTimeoutSeconds || 300)}`,
       );
     } catch (error) {
-      toast.error(error.response?.data?.message || error.message);
+      if (error?.code === "ECONNABORTED") {
+        setGoogleTimeoutError(true);
+        toast.error(
+          "Google authentication is taking longer than expected. Please try again.",
+        );
+      } else {
+        setGoogleTimeoutError(false);
+        toast.error(error.response?.data?.message || error.message);
+      }
     } finally {
       setGoogleSubmitting(false);
     }
   };
 
   const handleGoogleError = () => {
+    setGoogleTimeoutError(false);
     console.error("Google auth failed");
   };
 
@@ -102,11 +122,18 @@ const Login = () => {
   };
 
   const handleAuthModeToggle = () => {
+    setGoogleTimeoutError(false);
     setView(view === "login" ? "signup" : "login");
     setSearchParams(
       { state: view === "login" ? "signup" : "login" },
       { replace: true },
     );
+  };
+
+  const handleGoogleRetry = () => {
+    setGoogleTimeoutError(false);
+    // Re-mounting resets Google button internals after a failed attempt.
+    setGoogleWidgetKey((prev) => prev + 1);
   };
 
   const handleForgotPasswordClick = () => {
@@ -197,6 +224,7 @@ const Login = () => {
             <div className="mt-2 flex justify-center">
               {hasGoogleClientId ? (
                 <GoogleLogin
+                  key={googleWidgetKey}
                   onSuccess={handleGoogleSuccess}
                   onError={handleGoogleError}
                   text={view === "login" ? "signin_with" : "signup_with"}
@@ -215,6 +243,20 @@ const Login = () => {
                   ? "Signing in with Google..."
                   : "Creating your account with Google..."}
               </p>
+            )}
+            {googleTimeoutError && (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-left text-xs text-amber-700">
+                <p className="font-medium">
+                  Google request timed out. Please click try again.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGoogleRetry}
+                  className="mt-2 rounded-full border border-amber-400 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                >
+                  Try Google again
+                </button>
+              </div>
             )}
           </>
         }
