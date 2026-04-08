@@ -714,6 +714,72 @@ export const getEmailVerificationStatus = async (req, res) => {
   }
 };
 
+// Controller for resending Google email verification link
+// POST: /api/users/verify-email/resend
+
+export const resendGoogleVerificationEmail = async (req, res) => {
+  try {
+    const { syncKey, email } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+
+    let user = null;
+
+    if (syncKey) {
+      user = await User.findOne({ emailVerificationSyncKey: syncKey });
+    }
+
+    if (!user && normalizedEmail) {
+      user = await User.findOne({
+        email: normalizedEmail,
+        authProvider: "google",
+      });
+    }
+
+    if (!user || user.authProvider !== "google") {
+      return res.status(404).json({
+        message: "Verification session not found",
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(200).json({
+        alreadyVerified: true,
+        message:
+          "Email is already verified. Please continue with Google sign-in.",
+      });
+    }
+
+    const verificationToken = generateEmailVerificationToken();
+    const verificationSyncKey = generateEmailVerificationSyncKey();
+    const tokenExpiry = new Date(
+      Date.now() + GOOGLE_EMAIL_VERIFICATION_TIMEOUT_MS,
+    );
+
+    user.emailVerificationToken = verificationToken;
+    user.emailVerificationTokenExpiresAt = tokenExpiry;
+    user.emailVerificationSyncKey = verificationSyncKey;
+    user.emailVerificationSyncKeyExpiresAt = tokenExpiry;
+    await user.save();
+
+    await sendEmailVerificationLinkWithRetry({
+      email: user.email,
+      name: user.name,
+      verificationToken,
+    });
+
+    return res.status(200).json({
+      message: "Verification email sent. Please check your inbox.",
+      verificationSyncKey,
+      verificationTimeoutSeconds: GOOGLE_EMAIL_VERIFICATION_TIMEOUT_SECONDS,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message:
+        "Could not resend verification email right now. Please try again in a moment.",
+    });
+  }
+};
+
 // Controller for getting user by ID
 // GET: /api/users/data
 

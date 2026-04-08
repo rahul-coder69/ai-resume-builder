@@ -8,9 +8,10 @@ import { login } from "../app/features/authSlice";
 const VerifyEmailPending = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const email = searchParams.get("email") || "your email";
-  const syncKey = searchParams.get("syncKey") || "";
+  const initialSyncKey = searchParams.get("syncKey") || "";
+  const [syncKey, setSyncKey] = React.useState(initialSyncKey);
   const initialTimeoutSeconds = Number(
     searchParams.get("timeoutSeconds") || 300,
   );
@@ -22,6 +23,7 @@ const VerifyEmailPending = () => {
     initialTimeoutSeconds,
   );
   const [countdown, setCountdown] = React.useState(4);
+  const [resending, setResending] = React.useState(false);
 
   const checkVerificationStatus = React.useCallback(async () => {
     if (!syncKey || verified || timedOut) return;
@@ -66,7 +68,9 @@ const VerifyEmailPending = () => {
   React.useEffect(() => {
     if (!syncKey) {
       setTimedOut(true);
-      setStatusMessage("Verification timeout please try again");
+      setStatusMessage(
+        "Verification session expired. Please resend the email.",
+      );
       setRemainingSeconds(0);
       return;
     }
@@ -119,6 +123,49 @@ const VerifyEmailPending = () => {
     return () => clearInterval(timer);
   }, [timedOut, verified]);
 
+  const handleResendVerificationEmail = async () => {
+    if (resending || verified) return;
+
+    try {
+      setResending(true);
+      setStatusMessage("");
+
+      const { data } = await api.post("/api/users/verify-email/resend", {
+        syncKey,
+        email: email === "your email" ? "" : email,
+      });
+
+      if (data?.alreadyVerified) {
+        setStatusMessage(
+          "Email already verified. Continue with Google sign-in.",
+        );
+        setTimedOut(false);
+        return;
+      }
+
+      const refreshedSyncKey = data?.verificationSyncKey || "";
+      const refreshedTimeout = Number(data?.verificationTimeoutSeconds || 300);
+
+      setSyncKey(refreshedSyncKey);
+      setRemainingSeconds(refreshedTimeout);
+      setTimedOut(false);
+      setStatusMessage("Verification email resent. Please check your inbox.");
+
+      setSearchParams(
+        {
+          email,
+          syncKey: refreshedSyncKey,
+          timeoutSeconds: String(refreshedTimeout),
+        },
+        { replace: true },
+      );
+    } catch (error) {
+      setStatusMessage(error.response?.data?.message || error.message);
+    } finally {
+      setResending(false);
+    }
+  };
+
   const formatCountdown = (seconds) => {
     const safeSeconds = Math.max(0, seconds);
     const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, "0");
@@ -143,7 +190,8 @@ const VerifyEmailPending = () => {
               <span className="font-medium text-gray-800">{email}</span>.
             </p>
             <p className="mt-2 text-sm text-gray-600 select-none">
-              Please click the link in your inbox. After verification, you'll be redirected to the dashboard.
+              Please click the link in your inbox. After verification, you'll be
+              redirected to the dashboard.
             </p>
             <p className="mt-2 text-xs text-amber-700 font-medium select-none">
               Note: This verification link expires in{" "}
@@ -173,6 +221,19 @@ const VerifyEmailPending = () => {
         <div className="mt-6 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 select-none">
           If you do not see the email, check your Spam or Promotions folder.
         </div>
+
+        {!verified && (
+          <button
+            type="button"
+            onClick={handleResendVerificationEmail}
+            disabled={resending}
+            className="mt-4 w-full h-11 rounded-full text-amber-800 border border-amber-400 hover:bg-amber-50 transition-colors font-medium disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {resending
+              ? "Resending verification email..."
+              : "Resend verification email"}
+          </button>
+        )}
 
         {verified && (
           <button

@@ -10,6 +10,7 @@ import {
   verifySignupOtp,
   verifyEmailViaToken,
   getEmailVerificationStatus,
+  resendGoogleVerificationEmail,
   deleteAccount,
 } from "../controllers/userController.js";
 import protect from "../middlewares/authMiddleware.js";
@@ -23,6 +24,7 @@ userRouter.post("/forgot-password", forgotPassword);
 userRouter.post("/reset-password", resetPassword);
 userRouter.post("/verify-email", verifyEmailViaToken);
 userRouter.post("/verify-email/status", getEmailVerificationStatus);
+userRouter.post("/verify-email/resend", resendGoogleVerificationEmail);
 userRouter.post("/google", googleLogin);
 userRouter.get("/data", protect, getUserById);
 userRouter.get("/resumes", protect, getUserResumes);
