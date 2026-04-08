@@ -21,11 +21,41 @@ const allowedOrigins = [
   .map((origin) => String(origin || "").trim())
   .filter(Boolean);
 
+const configuredOriginRegexes = (process.env.CORS_ALLOWED_ORIGIN_REGEX || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean)
+  .map((pattern) => {
+    try {
+      return new RegExp(pattern, "i");
+    } catch {
+      return null;
+    }
+  })
+  .filter(Boolean);
+
+const hostedOriginRegexes = [
+  /^https:\/\/.*\.vercel\.app$/i,
+  /^https:\/\/.*\.netlify\.app$/i,
+];
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  return [...configuredOriginRegexes, ...hostedOriginRegexes].some((regex) =>
+    regex.test(origin),
+  );
+};
+
 const corsOptions =
   allowedOrigins.length > 0
     ? {
         origin: (origin, callback) => {
-          if (!origin || allowedOrigins.includes(origin)) {
+          if (isAllowedOrigin(origin)) {
             callback(null, true);
             return;
           }

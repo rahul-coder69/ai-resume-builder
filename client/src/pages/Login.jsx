@@ -9,6 +9,8 @@ import toast from "react-hot-toast";
 
 const Login = () => {
   const GOOGLE_AUTH_TIMEOUT_MS = 60000;
+  const GOOGLE_ICON_URL =
+    "https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png";
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -23,6 +25,10 @@ const Login = () => {
   const [googleTimeoutError, setGoogleTimeoutError] = React.useState(false);
   const [googleWidgetKey, setGoogleWidgetKey] = React.useState(0);
   const hasGoogleClientId = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+  const googleButtonLabel =
+    view === "login"
+      ? "Logging in with Google..."
+      : "Signing up with Google...";
 
   React.useEffect(() => {
     if (!["login", "signup", "register"].includes(normalizedState)) {
@@ -223,27 +229,32 @@ const Login = () => {
             </div>
             <div className="mt-2 flex justify-center">
               {hasGoogleClientId ? (
-                <GoogleLogin
-                  key={googleWidgetKey}
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                  text={view === "login" ? "signin_with" : "signup_with"}
-                  shape="pill"
-                  width="286"
-                />
+                googleSubmitting ? (
+                  <div className="w-[286px] h-[40px] rounded-full border border-gray-300 bg-gray-100 text-gray-600 text-sm font-medium flex items-center justify-center gap-2 select-none cursor-not-allowed">
+                    <img
+                      src={GOOGLE_ICON_URL}
+                      alt="Google"
+                      className="h-4 w-4"
+                      loading="lazy"
+                    />
+                    {googleButtonLabel}
+                  </div>
+                ) : (
+                  <GoogleLogin
+                    key={googleWidgetKey}
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    text={view === "login" ? "signin_with" : "signup_with"}
+                    shape="pill"
+                    width="286"
+                  />
+                )
               ) : (
                 <div className="w-full rounded-full border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs text-amber-700">
                   Google auth is disabled until VITE_GOOGLE_CLIENT_ID is set.
                 </div>
               )}
             </div>
-            {googleSubmitting && (
-              <p className="mt-3 text-xs text-gray-500">
-                {view === "login"
-                  ? "Signing in with Google..."
-                  : "Creating your account with Google..."}
-              </p>
-            )}
             {googleTimeoutError && (
               <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-left text-xs text-amber-700">
                 <p className="font-medium">
