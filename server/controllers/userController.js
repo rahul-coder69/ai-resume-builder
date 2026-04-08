@@ -531,11 +531,17 @@ export const googleLogin = async (req, res) => {
     }
 
     // Send verification email
-    await sendEmailVerificationLink({
-      email,
-      name,
-      verificationToken,
-    });
+    try {
+      await sendEmailVerificationLink({
+        email,
+        name,
+        verificationToken,
+      });
+      console.log("✅ Verification email sent successfully to:", email);
+    } catch (emailError) {
+      console.error("❌ Email sending failed:", emailError.message);
+      throw emailError;
+    }
 
     user.password = undefined;
 
@@ -547,6 +553,7 @@ export const googleLogin = async (req, res) => {
       user: buildSafeUser(user),
     });
   } catch (error) {
+    console.error("❌ Google login error:", error.message);
     return res.status(400).json({
       message: error.message,
     });
@@ -711,6 +718,39 @@ export const getUserResumes = async (req, res) => {
       .lean();
     return res.status(200).json({
       resumes,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      message: error.message,
+    });
+  }
+};
+
+// Controller for deleting user account
+// DELETE: /api/users/delete-account
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(400).json({
+        message: "User ID is required",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    await Resume.deleteMany({ userId });
+    await User.findByIdAndDelete(userId);
+
+    return res.status(200).json({
+      message: "Account deleted successfully along with all resumes",
     });
   } catch (error) {
     return res.status(400).json({

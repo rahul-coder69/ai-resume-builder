@@ -14,6 +14,9 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import api from "../configs/api";
 import toast from "react-hot-toast";
+import { useDispatch } from "react-redux";
+import { logout } from "../app/features/authSlice";
+import { deleteUserAccount } from "../configs/api";
 
 const getPdfToTextParser = async () => {
   const module = await import("react-pdftotext");
@@ -22,6 +25,7 @@ const getPdfToTextParser = async () => {
 
 const Dashboard = () => {
   const { user, token } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
 
   const colors = ["#9333ea", "#d97706", "#dc2626", "#0284c7", "#16a34a"];
 
@@ -32,8 +36,31 @@ const Dashboard = () => {
   const [resume, setResume] = useState(null);
   const [editResumeId, setEditResumeId] = useState("");
   const [isloading, setIsLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const navigate = useNavigate();
+  const isDeleteConfirmationValid = deleteConfirmText === "delete";
+
+  const deleteUserAccountHandler = async () => {
+    if (isDeletingAccount) return;
+
+    try {
+      setIsDeletingAccount(true);
+      await deleteUserAccount();
+      toast.success("Account deleted sucessfully");
+
+      dispatch(logout());
+      navigate("/");
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error.message);
+      setShowDeleteConfirm(false);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
 
   const loadAllResumes = async () => {
     if (!token) return;
@@ -149,6 +176,18 @@ const Dashboard = () => {
         <p className="text-2xl font-medium mb-6 bg-gradient-to-r from-slate-600 to-slate-700 bg-clip-text text-transparent sm:hidden">
           Welcome, Nirmal Barman
         </p>
+        <div className="mb-6 flex justify-end">
+          <button
+            onClick={() => {
+              setDeleteConfirmText("");
+              setShowDeleteConfirm(true);
+            }}
+            className="bg-red-50 hover:bg-red-100 border border-red-300 text-red-700 px-4 py-2 rounded-full text-sm font-medium active:scale-95 transition-all inline-flex items-center gap-2"
+          >
+            <TrashIcon className="size-4" />
+            Delete Account
+          </button>
+        </div>
         <div className="flex gap-4">
           <button
             onClick={() => setShowCreateResume(true)}
@@ -346,11 +385,81 @@ const Dashboard = () => {
               <XIcon
                 className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors"
                 onClick={() => {
-                  (setEditResumeId(""), setTitle(""));
+                  setEditResumeId("");
+                  setTitle("");
                 }}
               />
             </div>
           </form>
+        )}
+
+        {showDeleteConfirm && (
+          <div
+            onClick={() => !isDeletingAccount && setShowDeleteConfirm(false)}
+            className="fixed inset-0 bg-black/70 backdrop-blur bg-opacity-50 z-10 flex items-center justify-center"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative bg-slate-50 border border-red-200 shadow-md rounded-lg w-full max-w-sm p-6"
+            >
+              <h2 className="text-xl font-bold mb-2 text-red-700 select-none">
+                Delete Account
+              </h2>
+              <p className="text-slate-600 mb-6 select-none">
+                This action cannot be undone. This will permanently delete your
+                account and all your resumes from our database.
+              </p>
+
+              <label className="block mb-4">
+                <span className="text-sm text-slate-600 select-none">
+                  Type delete to confirm
+                </span>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="delete"
+                  disabled={isDeletingAccount}
+                  className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-200"
+                />
+              </label>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  disabled={isDeletingAccount}
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeleteConfirmText("");
+                  }}
+                  className="flex-1 py-2 bg-slate-200 text-slate-700 rounded hover:bg-slate-300 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingAccount || !isDeleteConfirmationValid}
+                  onClick={deleteUserAccountHandler}
+                  className="flex-1 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors font-medium inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isDeletingAccount && (
+                    <LoaderCircleIcon className="animate-spin size-4" />
+                  )}
+                  {isDeletingAccount ? "Deleting..." : "Delete Account"}
+                </button>
+              </div>
+
+              <XIcon
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors"
+                onClick={() => {
+                  if (!isDeletingAccount) {
+                    setShowDeleteConfirm(false);
+                    setDeleteConfirmText("");
+                  }
+                }}
+              />
+            </div>
+          </div>
         )}
       </div>
     </div>

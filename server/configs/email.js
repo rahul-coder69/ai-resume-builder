@@ -6,6 +6,22 @@ const smtpPass = (process.env.SMTP_PASS || "").trim();
 
 const hasEmailConfig = Boolean(smtpHost && smtpUser && smtpPass);
 
+// Log SMTP configuration status at startup
+if (hasEmailConfig) {
+  console.log("✅ SMTP Configuration Loaded:");
+  console.log("   Host:", smtpHost);
+  console.log("   User:", smtpUser);
+  console.log("   Port:", process.env.SMTP_PORT || 587);
+  console.log("   Secure:", process.env.SMTP_SECURE || "false");
+} else {
+  console.warn("⚠️ SMTP Not Configured. Email sending will fail.");
+  console.warn("   Missing:", {
+    SMTP_HOST: !smtpHost,
+    SMTP_USER: !smtpUser,
+    SMTP_PASS: !smtpPass,
+  });
+}
+
 const transporter = hasEmailConfig
   ? nodemailer.createTransport({
       host: smtpHost,
@@ -26,11 +42,24 @@ export const sendEmail = async ({ to, subject, text, html }) => {
     );
   }
 
-  return transporter.sendMail({
-    from: process.env.SMTP_FROM || smtpUser,
-    to,
-    subject,
-    text,
-    html,
-  });
+  try {
+    console.log(
+      "📧 Sending email to:",
+      to,
+      "from:",
+      process.env.SMTP_FROM || smtpUser,
+    );
+    const result = await transporter.sendMail({
+      from: process.env.SMTP_FROM || smtpUser,
+      to,
+      subject,
+      text,
+      html,
+    });
+    console.log("✅ Email sent successfully. Message ID:", result.messageId);
+    return result;
+  } catch (error) {
+    console.error("❌ Email send error:", error.message);
+    throw error;
+  }
 };

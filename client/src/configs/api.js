@@ -48,4 +48,8 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export const deleteUserAccount = async () => {
+  return api.delete("/api/users/delete-account");
+};
+
 export default api;
