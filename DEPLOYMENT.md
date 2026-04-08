@@ -33,6 +33,14 @@ Add these in Render -> Service -> Environment:
 - `GOOGLE_CLIENT_ID`
 - `CLIENT_URL1` (your Vercel URL, e.g. `https://your-site.vercel.app`)
 - `CLIENT_URL2` (your Netlify URL, e.g. `https://your-site.netlify.app`)
+- `CLIENT_URL` should not point to localhost in production, because verification emails now prefer `CLIENT_URL1` and `CLIENT_URL2` before falling back to `CLIENT_URL`
+- SMTP values for Mailtrap:
+  - `SMTP_HOST=sandbox.smtp.mailtrap.io`
+  - `SMTP_PORT=587`
+  - `SMTP_SECURE=false`
+  - `SMTP_USER=<mailtrap username>`
+  - `SMTP_PASS=<mailtrap password>`
+  - `SMTP_FROM=<sender email>`
 
 Legacy fallback (optional):
 

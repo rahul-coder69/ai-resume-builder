@@ -83,14 +83,24 @@ const generateEmailVerificationSyncKey = () => {
 
 const resolveClientBaseUrl = () => {
   const candidates = [
-    process.env.CLIENT_URL,
     process.env.CLIENT_URL1,
     process.env.CLIENT_URL2,
+    process.env.CLIENT_URL,
   ];
 
-  const firstValid = candidates
-    .map((url) => String(url || "").trim())
-    .find(Boolean);
+  const normalizedCandidates = candidates
+    .map((url) =>
+      String(url || "")
+        .trim()
+        .replace(/\/$/, ""),
+    )
+    .filter(Boolean);
+
+  const nonLocalhostCandidate = normalizedCandidates.find(
+    (url) => !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(url),
+  );
+
+  const firstValid = nonLocalhostCandidate || normalizedCandidates[0];
 
   return (firstValid || "http://localhost:5173").replace(/\/$/, "");
 };
