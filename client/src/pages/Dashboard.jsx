@@ -1,11 +1,8 @@
 import {
-  CircleCheckBig,
-  CircleX,
   FilePenIcon,
   LoaderCircleIcon,
   PencilIcon,
   PlusIcon,
-  RefreshCcw,
   TrashIcon,
   UploadCloud,
   UploadCloudIcon,
@@ -42,15 +39,6 @@ const Dashboard = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [emailHealthLoading, setEmailHealthLoading] = useState(false);
-  const [emailHealth, setEmailHealth] = useState({
-    ok: false,
-    loaded: false,
-    deliveryMode: "unknown",
-    smtpConfigured: false,
-    rabbitConfigured: false,
-    rabbitConnected: false,
-  });
 
   const navigate = useNavigate();
   const isDeleteConfirmationValid = deleteConfirmText === "delete";
@@ -82,30 +70,6 @@ const Dashboard = () => {
       setAllResumes(data.resumes);
     } catch (error) {
       toast.error(error?.response?.data?.message || error.message);
-    }
-  };
-
-  const loadEmailHealth = async () => {
-    try {
-      setEmailHealthLoading(true);
-      const { data } = await api.get("/api/test/email-status");
-
-      setEmailHealth({
-        ok: Boolean(data?.ok),
-        loaded: true,
-        deliveryMode: data?.deliveryMode || "unknown",
-        smtpConfigured: Boolean(data?.emailProvider?.configured),
-        rabbitConfigured: Boolean(data?.rabbitMq?.configured),
-        rabbitConnected: Boolean(data?.rabbitMq?.connected),
-      });
-    } catch (error) {
-      setEmailHealth((prev) => ({
-        ...prev,
-        ok: false,
-        loaded: true,
-      }));
-    } finally {
-      setEmailHealthLoading(false);
     }
   };
 
@@ -206,12 +170,6 @@ const Dashboard = () => {
     loadAllResumes();
   }, [token]);
 
-  useEffect(() => {
-    if (token) {
-      loadEmailHealth();
-    }
-  }, [token]);
-
   return (
     <div>
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -229,64 +187,6 @@ const Dashboard = () => {
             <TrashIcon className="size-4" />
             Delete Account
           </button>
-        </div>
-
-        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm text-slate-500">Email System Health</p>
-              <p className="text-lg font-semibold text-slate-800">
-                {emailHealth.loaded
-                  ? emailHealth.ok && emailHealth.smtpConfigured
-                    ? "Ready"
-                    : "Needs Setup"
-                  : "Checking..."}
-              </p>
-            </div>
-
-            <button
-              onClick={loadEmailHealth}
-              disabled={emailHealthLoading}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-            >
-              <RefreshCcw
-                className={`size-4 ${emailHealthLoading ? "animate-spin" : ""}`}
-              />
-              Check Now
-            </button>
-          </div>
-
-          <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-3">
-            <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-              {emailHealth.smtpConfigured ? (
-                <CircleCheckBig className="size-4 text-emerald-600" />
-              ) : (
-                <CircleX className="size-4 text-red-500" />
-              )}
-              SMTP: {emailHealth.smtpConfigured ? "OK" : "Missing"}
-            </div>
-
-            <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-              {emailHealth.rabbitConfigured ? (
-                <CircleCheckBig className="size-4 text-emerald-600" />
-              ) : (
-                <CircleX className="size-4 text-amber-500" />
-              )}
-              Queue Config: {emailHealth.rabbitConfigured ? "Yes" : "No"}
-            </div>
-
-            <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-              {emailHealth.deliveryMode === "queue-worker" ? (
-                <CircleCheckBig className="size-4 text-indigo-600" />
-              ) : (
-                <CircleCheckBig className="size-4 text-emerald-600" />
-              )}
-              Mode:{" "}
-              {emailHealth.deliveryMode === "queue-worker"
-                ? "Queue"
-                : "Direct SMTP"}
-            </div>
-          </div>
         </div>
 
         <div className="flex gap-4">
