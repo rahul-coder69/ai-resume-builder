@@ -25,6 +25,10 @@ const EMAIL_RETRY_MAX_DELAY_MS = Number(
 const EMAIL_SENT_KEY_TTL_SECONDS = Number(
   cleanEnv(process.env.EMAIL_SENT_KEY_TTL_SECONDS) || 86400,
 );
+const EMAIL_DIRECT_FALLBACK_ENABLED =
+  cleanEnv(
+    process.env.EMAIL_DIRECT_FALLBACK_ENABLED || "true",
+  ).toLowerCase() !== "false";
 
 let queuePrepared = false;
 let workerStarted = false;
@@ -65,17 +69,9 @@ export const enqueueEmailJob = async (
   { to, subject, text, html, metadata = {} },
   { idempotencyKey } = {},
 ) => {
-  const channel = await getRabbitMqChannel();
-  if (!channel) {
-    console.error("❌ RabbitMQ not configured. Email job dropped: ", to);
-    throw new Error(
-      "Email queue not available. Configure RABBITMQ_URL or RABBITMQ_HOST/RABBITMQ_PORT credentials.",
-    );
-  }
-
-  await ensureQueueTopology();
+  const jobId = idempotencyKey || randomUUID();
   const job = {
-    id: idempotencyKey || randomUUID(),
+    id: jobId,
     to,
     subject,
     text,
@@ -83,6 +79,58 @@ export const enqueueEmailJob = async (
     metadata,
     queuedAt: new Date().toISOString(),
   };
+
+  const channel = await getRabbitMqChannel();
+  if (!channel) {
+    if (!EMAIL_DIRECT_FALLBACK_ENABLED) {
+      console.error("❌ RabbitMQ not configured. Email job dropped: ", to);
+      throw new Error(
+        "Email queue not available. Configure RABBITMQ_URL or RABBITMQ_HOST/RABBITMQ_PORT credentials.",
+      );
+    }
+
+    console.warn(
+      "⚠️ RabbitMQ unavailable. Falling back to direct SMTP delivery for:",
+      to,
+    );
+
+    const redis = await getRedisClient();
+    if (redis) {
+      const alreadySent = await redis.get(emailSentKey(jobId));
+      if (alreadySent) {
+        return {
+          queued: false,
+          delivered: true,
+          deduped: true,
+          jobId,
+        };
+      }
+    }
+
+    await sendEmail({
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    if (redis) {
+      await redis.set(
+        emailSentKey(jobId),
+        "1",
+        "EX",
+        EMAIL_SENT_KEY_TTL_SECONDS,
+      );
+    }
+
+    return {
+      queued: false,
+      delivered: true,
+      jobId,
+    };
+  }
+
+  await ensureQueueTopology();
 
   const payload = Buffer.from(JSON.stringify(job));
 

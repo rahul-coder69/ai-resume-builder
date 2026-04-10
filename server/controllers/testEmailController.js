@@ -1,4 +1,28 @@
 import { enqueueEmailJob } from "../services/emailQueue.js";
+import { getEmailProviderInfo } from "../configs/email.js";
+import { getRabbitMqStatus } from "../configs/rabbitmq.js";
+
+export const getEmailStatus = async (req, res) => {
+  try {
+    const emailProvider = getEmailProviderInfo();
+    const rabbitMq = getRabbitMqStatus();
+
+    return res.status(200).json({
+      ok: true,
+      emailProvider,
+      rabbitMq,
+      deliveryMode: rabbitMq.connected
+        ? "queue-worker"
+        : "direct-smtp-fallback",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      message: "Could not read email status",
+      error: error.message,
+    });
+  }
+};
 
 export const testSendEmail = async (req, res) => {
   try {
@@ -41,9 +65,16 @@ export const testSendEmail = async (req, res) => {
     });
 
     return res.status(200).json({
-      message: "Test email queued successfully",
+      message: queueResult.queued
+        ? "Test email queued successfully"
+        : "Test email sent directly via SMTP fallback",
       queueJobId: queueResult.jobId,
-      note: "Check worker logs for delivery status",
+      deliveryMode: queueResult.queued
+        ? "queue-worker"
+        : "direct-smtp-fallback",
+      note: queueResult.queued
+        ? "Check worker logs for delivery status"
+        : "RabbitMQ is unavailable, so email was sent directly",
     });
   } catch (error) {
     return res.status(400).json({

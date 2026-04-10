@@ -111,3 +111,8 @@ export const closeRabbitMq = async () => {
     connection = null;
   }
 };
+
+export const getRabbitMqStatus = () => ({
+  configured: Boolean(rabbitMqUrl),
+  connected: Boolean(connection && channel),
+});
