@@ -81,9 +81,8 @@ npm install
 Create a `.env` file inside `server/` and add:
 
 ```env
-MONGO_URI=your_mongodb_connection_string
+MONGODB_URI=your_mongodb_connection_string
 GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
 JWT_SECRET=your_secret_key
 PORT=5000
 SMTP_HOST=your_smtp_host
@@ -91,6 +90,31 @@ SMTP_PORT=587
 SMTP_USER=your_smtp_username
 SMTP_PASS=your_smtp_password
 SMTP_FROM=your_from_email_address
+RABBITMQ_URL=amqp://localhost:5672
+REDIS_URL=redis://localhost:6379
+OTP_RATE_LIMIT_SECONDS=60
+OTP_CACHE_SECONDS=600
+EMAIL_QUEUE_NAME=email.jobs
+EMAIL_RETRY_QUEUE_NAME=email.jobs.retry
+```
+
+`MONGO_URI` is also supported as a backward-compatible fallback.
+
+For Upstash Redis, use your TLS URL in `REDIS_URL`, for example:
+
+```env
+REDIS_URL=rediss://default:<password>@<endpoint>.upstash.io:6379
+```
+
+Recommended for Gmail production SMTP:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-google-workspace-or-gmail-address
+SMTP_PASS=your-16-character-google-app-password
+SMTP_FROM=your-google-workspace-or-gmail-address
 ```
 
 Run backend:
@@ -115,14 +139,16 @@ npm run dev
 
 1. Go to Google Cloud Console
 2. Create a new project
-3. Enable OAuth 2.0
-4. Add Authorized Redirect URI:
+3. Enable OAuth 2.0 and create a **Web application** client
+4. Add **Authorized JavaScript origins**:
 
 ```
-http://localhost:5000/auth/google/callback
+http://localhost:5173
+https://your-site.vercel.app
+https://your-site.netlify.app
 ```
 
-5. Copy Client ID & Secret into `.env`
+5. Copy the Client ID into backend `GOOGLE_CLIENT_ID` and frontend `VITE_GOOGLE_CLIENT_ID`
 
 ---
 
@@ -133,7 +159,7 @@ http://localhost:5000/auth/google/callback
 - Vercel: set **Root Directory** to `client`, build command `npm run build`, output `dist`
 - Netlify: root `netlify.toml` is included and deploys from `client`
 - Add frontend env vars on either platform:
-  - `VITE_BASE_URL`
+  - `VITE_BASE_URL` (required, example: `https://resume-builder-api.onrender.com`)
   - `VITE_GOOGLE_CLIENT_ID`
 
 ### Backend (Render)

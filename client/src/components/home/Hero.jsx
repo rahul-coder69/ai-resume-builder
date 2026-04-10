@@ -211,31 +211,31 @@ const Hero = () => {
 
           {/* Avatars + Stars */}
           <div className="flex items-center mt-24">
-            <div className="flex -space-x-3 pr-3">
+            <div className="flex -space-x-3 pr-3 cursor-pointer">
               <img
                 src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200"
                 alt="user3"
-                className="size-8 object-cover rounded-full border-2 border-white hover:-translate-y-0.5 transition z-[1]"
+                className="size-8 object-cover rounded-full border-2 border-white hover:-translate-y-0.5 transition z-[1] select-none pointer-events-none"
               />
               <img
                 src="https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=200"
                 alt="user1"
-                className="size-8 object-cover rounded-full border-2 border-white hover:-translate-y-0.5 transition z-2"
+                className="size-8 object-cover rounded-full border-2 border-white hover:-translate-y-0.5 transition z-2 select-none pointer-events-none"
               />
               <img
                 src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
                 alt="user2"
-                className="size-8 object-cover rounded-full border-2 border-white hover:-translate-y-0.5 transition z-[3]"
+                className="size-8 object-cover rounded-full border-2 border-white hover:-translate-y-0.5 transition z-[3] select-none pointer-events-none"
               />
               <img
                 src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200"
                 alt="user3"
-                className="size-8 object-cover rounded-full border-2 border-white hover:-translate-y-0.5 transition z-[4]"
+                className="size-8 object-cover rounded-full border-2 border-white hover:-translate-y-0.5 transition z-[4] select-none pointer-events-none"
               />
               <img
                 src="https://randomuser.me/api/portraits/men/75.jpg"
                 alt="user5"
-                className="size-8 rounded-full border-2 border-white hover:-translate-y-0.5 transition z-[5]"
+                className="size-8 rounded-full border-2 border-white hover:-translate-y-0.5 transition z-[5] select-none pointer-events-none"
               />
             </div>
 

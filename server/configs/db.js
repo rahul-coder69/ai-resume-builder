@@ -1,10 +1,16 @@
 import mongoose from "mongoose";
 
 const connectDB = async () => {
-  let mongodbURI = (process.env.MONGODB_URI || "").trim();
+  let mongodbURI = (
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URI ||
+    ""
+  ).trim();
 
   if (!mongodbURI) {
-    throw new Error("MONGODB_URI environment variable is not defined");
+    throw new Error(
+      "MONGODB_URI (or MONGO_URI) environment variable is not defined",
+    );
   }
 
   // Remove optional quotes from .env values.

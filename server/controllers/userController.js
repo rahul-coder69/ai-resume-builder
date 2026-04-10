@@ -4,7 +4,8 @@ import jwt from "jsonwebtoken";
 import Resume from "../models/Resume.js";
 import { OAuth2Client } from "google-auth-library";
 import { randomInt, randomBytes } from "crypto";
-import { sendEmail } from "../configs/email.js";
+import { getRedisClient } from "../configs/redis.js";
+import { enqueueEmailJob } from "../services/emailQueue.js";
 
 const generateToken = (userId) => {
   const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
@@ -15,6 +16,16 @@ const generateToken = (userId) => {
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const OTP_EXPIRY_MINUTES = 10;
+const cleanEnv = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/^['\"]|['\"]$/g, "");
+const OTP_RATE_LIMIT_SECONDS = Number(
+  cleanEnv(process.env.OTP_RATE_LIMIT_SECONDS) || 60,
+);
+const OTP_CACHE_SECONDS = Number(
+  cleanEnv(process.env.OTP_CACHE_SECONDS) || OTP_EXPIRY_MINUTES * 60,
+);
 const GOOGLE_EMAIL_VERIFICATION_TIMEOUT_MS = 5 * 60 * 1000;
 const GOOGLE_EMAIL_VERIFICATION_TIMEOUT_SECONDS = Math.floor(
   GOOGLE_EMAIL_VERIFICATION_TIMEOUT_MS / 1000,
@@ -26,6 +37,39 @@ const normalizeEmail = (email) =>
     .toLowerCase();
 
 const generateOtp = () => String(randomInt(100000, 1000000));
+
+const getOtpRedisKeys = ({ email, purpose }) => ({
+  otpKey: `otp:${purpose}:${email}`,
+  rateLimitKey: `otp:ratelimit:${purpose}:${email}`,
+});
+
+const enforceOtpRateLimit = async ({ email, purpose }) => {
+  const redis = await getRedisClient();
+  if (!redis) {
+    return;
+  }
+
+  const { rateLimitKey } = getOtpRedisKeys({ email, purpose });
+  const alreadyRequested = await redis.get(rateLimitKey);
+
+  if (alreadyRequested) {
+    const error = new Error("Too many OTP requests. Please try again later.");
+    error.statusCode = 429;
+    throw error;
+  }
+};
+
+const cacheOtpInRedis = async ({ email, purpose, otpHash }) => {
+  const redis = await getRedisClient();
+  if (!redis) {
+    return;
+  }
+
+  const { otpKey, rateLimitKey } = getOtpRedisKeys({ email, purpose });
+
+  await redis.set(otpKey, otpHash, "EX", OTP_CACHE_SECONDS);
+  await redis.set(rateLimitKey, "true", "EX", OTP_RATE_LIMIT_SECONDS);
+};
 
 const getOtpExpiryDate = () =>
   new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
@@ -65,12 +109,21 @@ const sendOtpEmail = async ({ email, otp, name, purpose }) => {
 
   const text = `${title}: ${otp}. This code expires in ${OTP_EXPIRY_MINUTES} minutes.`;
 
-  await sendEmail({
-    to: email,
-    subject: `${title} - ${otp}`,
-    text,
-    html,
-  });
+  await enqueueEmailJob(
+    {
+      to: email,
+      subject: `${title} - ${otp}`,
+      text,
+      html,
+      metadata: {
+        type: "otp",
+        purpose,
+      },
+    },
+    {
+      idempotencyKey: `otp:${purpose}:${email}:${otp}`,
+    },
+  );
 };
 
 const generateEmailVerificationToken = () => {
@@ -130,32 +183,20 @@ const sendEmailVerificationLink = async ({
 
   const text = `Verify your email: ${verificationLink}`;
 
-  await sendEmail({
-    to: email,
-    subject: "Verify your Resume Builder email address",
-    text,
-    html,
-  });
-};
-
-const sendEmailVerificationLinkWithRetry = async (payload) => {
-  const maxAttempts = 2;
-  let lastError;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      await sendEmailVerificationLink(payload);
-      return;
-    } catch (error) {
-      lastError = error;
-      console.error(
-        `❌ Verification email attempt ${attempt}/${maxAttempts} failed:`,
-        error.message,
-      );
-    }
-  }
-
-  throw lastError;
+  await enqueueEmailJob(
+    {
+      to: email,
+      subject: "Verify your Resume Builder email address",
+      text,
+      html,
+      metadata: {
+        type: "email-verification-link",
+      },
+    },
+    {
+      idempotencyKey: `verify-link:${email}:${verificationToken}`,
+    },
+  );
 };
 
 const getGoogleVerificationRemainingSeconds = (expiresAt) => {
@@ -192,10 +233,20 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    await enforceOtpRateLimit({
+      email: normalizedEmail,
+      purpose: "verification",
+    });
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const otp = generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
     const otpExpiry = getOtpExpiryDate();
+    await cacheOtpInRedis({
+      email: normalizedEmail,
+      purpose: "verification",
+      otpHash,
+    });
 
     let user = existingUser;
     if (user) {
@@ -247,7 +298,7 @@ export const registerUser = async (req, res) => {
       }
     }
 
-    return res.status(400).json({
+    return res.status(error?.statusCode || 400).json({
       message: error.message,
     });
   }
@@ -405,9 +456,19 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
+    await enforceOtpRateLimit({
+      email: normalizedEmail,
+      purpose: "reset",
+    });
+
     const otp = generateOtp();
     user.passwordResetOtpHash = await bcrypt.hash(otp, 10);
     user.passwordResetOtpExpiresAt = getOtpExpiryDate();
+    await cacheOtpInRedis({
+      email: normalizedEmail,
+      purpose: "reset",
+      otpHash: user.passwordResetOtpHash,
+    });
     await user.save();
 
     await sendOtpEmail({
@@ -421,7 +482,7 @@ export const forgotPassword = async (req, res) => {
       message: "Password reset OTP sent to your email",
     });
   } catch (error) {
-    return res.status(400).json({
+    return res.status(error?.statusCode || 400).json({
       message: error.message,
     });
   }
@@ -594,7 +655,7 @@ export const googleLogin = async (req, res) => {
     // or slow SMTP providers. Email delivery continues in background.
     res.status(200).json(responsePayload);
 
-    sendEmailVerificationLinkWithRetry({
+    sendEmailVerificationLink({
       email,
       name,
       verificationToken,
@@ -798,7 +859,7 @@ export const resendGoogleVerificationEmail = async (req, res) => {
     user.emailVerificationSyncKeyExpiresAt = tokenExpiry;
     await user.save();
 
-    await sendEmailVerificationLinkWithRetry({
+    await sendEmailVerificationLink({
       email: user.email,
       name: user.name,
       verificationToken,

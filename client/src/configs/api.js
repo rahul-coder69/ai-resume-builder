@@ -2,7 +2,6 @@ import axios from "axios";
 
 const rawBaseURL = import.meta.env.VITE_BASE_URL;
 const PLACEHOLDER_RENDER_HOST = "your-render-service.onrender.com";
-const DEFAULT_PROD_BASE_URL = "https://ai-resume-builder-cvca.onrender.com";
 const DEFAULT_DEV_BASE_URL = "http://localhost:3000";
 
 const normalizeBaseURL = (url) => {
@@ -21,7 +20,7 @@ const normalizedBaseURL = normalizeBaseURL(rawBaseURL);
 
 const resolvedBaseURL = import.meta.env.DEV
   ? DEFAULT_DEV_BASE_URL
-  : normalizedBaseURL || DEFAULT_PROD_BASE_URL;
+  : normalizedBaseURL;
 
 const api = axios.create({
   baseURL: resolvedBaseURL,
@@ -30,6 +29,14 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const baseURL = String(config.baseURL || "");
+
+  if (!import.meta.env.DEV && !baseURL) {
+    return Promise.reject(
+      new Error(
+        "Set VITE_BASE_URL in Vercel or Netlify to your Render backend URL.",
+      ),
+    );
+  }
 
   if (baseURL.includes(PLACEHOLDER_RENDER_HOST)) {
     return Promise.reject(

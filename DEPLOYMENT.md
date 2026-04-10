@@ -24,6 +24,7 @@ This project is split into:
 Add these in Render -> Service -> Environment:
 
 - `MONGODB_URI`
+- `MONGO_URI` (optional fallback)
 - `JWT_SECRET`
 - `OPENAI_API_KEY`
 - `OPENAI_BASE_URL` (only if your OpenAI-compatible endpoint requires custom base URL)
@@ -31,9 +32,16 @@ Add these in Render -> Service -> Environment:
 - `IMAGEKIT_PRIVATE_KEY`
 - `IMAGEKIT_URL_ENDPOINT`
 - `GOOGLE_CLIENT_ID`
+- `RABBITMQ_URL` (recommended) or `RABBITMQ_HOST`/`RABBITMQ_PORT`/`RABBITMQ_USER`/`RABBITMQ_PASS`
+- `REDIS_URL`
+- `REDIS_ENABLED` (`true` by default)
 - `CLIENT_URL1` (your Vercel URL, e.g. `https://your-site.vercel.app`)
 - `CLIENT_URL2` (your Netlify URL, e.g. `https://your-site.netlify.app`)
 - `CLIENT_URL` should not point to localhost in production, because verification emails now prefer `CLIENT_URL1` and `CLIENT_URL2` before falling back to `CLIENT_URL`
+- `OTP_RATE_LIMIT_SECONDS` (optional, default `60`)
+- `OTP_CACHE_SECONDS` (optional, default `600`)
+- `EMAIL_QUEUE_NAME` (optional, default `email.jobs`)
+- `EMAIL_RETRY_QUEUE_NAME` (optional, default `email.jobs.retry`)
 - SMTP values for Mailtrap:
   - `SMTP_HOST=sandbox.smtp.mailtrap.io`
   - `SMTP_PORT=587`
@@ -92,7 +100,7 @@ When Vercel and Netlify give your final production URLs:
 - Open frontend URL on Vercel.
 - Open frontend URL on Netlify.
 - Check backend health route in browser:
-  - `https://your-render-app.onrender.com/`
+  - `https://your-render-app.onrender.com/health`
 - Test login/register and resume save flows.
 
 ## 6) Common fixes

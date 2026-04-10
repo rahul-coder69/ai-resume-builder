@@ -6,10 +6,12 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /health
     autoDeploy: true
     envVars:
       - key: MONGODB_URI
+        sync: false
+      - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
         sync: false
@@ -25,6 +27,8 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
+      - key: RABBITMQ_URL
+        sync: false
       - key: CLIENT_URL
         sync: false
       - key: CLIENT_URL1
@@ -32,6 +36,10 @@ services:
       - key: CLIENT_URL2
         sync: false
       - key: CORS_ALLOWED_ORIGIN_REGEX
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: REDIS_ENABLED
         sync: false
       - key: SMTP_HOST
         sync: false
@@ -44,4 +52,12 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: SMTP_FROM
+        sync: false
+      - key: EMAIL_QUEUE_NAME
+        sync: false
+      - key: EMAIL_RETRY_QUEUE_NAME
+        sync: false
+      - key: OTP_RATE_LIMIT_SECONDS
+        sync: false
+      - key: OTP_CACHE_SECONDS
         sync: false
